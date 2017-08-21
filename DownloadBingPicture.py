@@ -1,24 +1,28 @@
 # -*- coding: UTF-8 -*-
+import requests
+import sys
+import win32api
+import win32con
+import win32gui
+import os
 
-import urllib2
-import json
-import win32gui,win32con,win32api
-import sys,os
-import datetime
-baseurl='http://www.bing.com/'
-url=baseurl+'HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN'
-response = urllib2.urlopen(url, timeout=10)
-data= json.loads(response.read())
-imagesUrl=baseurl+data['images'][0]['url']
+base_url = 'http://www.bing.com/'
 
-imagedata = urllib2.urlopen(imagesUrl, timeout=10)
-pos=imagesUrl.rfind("/")+1
-filepath = imagesUrl[pos:]
-with open(filepath, "wb") as code:
-    code.write(imagedata.read())
+url = base_url + 'HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN'
+r = requests.get(url)
+data = r.json()
 
+images = data.get('images', [])
 
-k = win32api.RegOpenKeyEx(win32con.HKEY_CURRENT_USER,"Control Panel\\Desktop",0,win32con.KEY_SET_VALUE)
-win32api.RegSetValueEx(k, "WallpaperStyle", 0, win32con.REG_SZ, "2") #2拉伸适应桌面,0桌面居中
-win32api.RegSetValueEx(k, "TileWallpaper", 0, win32con.REG_SZ, "0")
-win32gui.SystemParametersInfo(win32con.SPI_SETDESKWALLPAPER,sys.path[0]+"\\"+filepath, 1+2)
+for image in images:
+    image_url = image.get('url', '')
+    if image_url == '':
+        continue
+    image_date = requests.get(base_url + image_url)
+    file_name = os.path.split(image_url)[1]
+    with open(file_name, 'wb') as f:
+        f.write(image_date.content)
+    k = win32api.RegOpenKeyEx(win32con.HKEY_CURRENT_USER, "Control Panel\\Desktop", 0, win32con.KEY_SET_VALUE)
+    win32api.RegSetValueEx(k, "WallpaperStyle", 0, win32con.REG_SZ, "2")  # 2拉伸适应桌面,0桌面居中
+    win32api.RegSetValueEx(k, "TileWallpaper", 0, win32con.REG_SZ, "0")
+    win32gui.SystemParametersInfo(win32con.SPI_SETDESKWALLPAPER, os.path.join(sys.path[0], file_name), 1 + 2)
